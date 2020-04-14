@@ -2,7 +2,7 @@ This script will pull back domains related to a given domain. It will then attem
 
 The script has has 3 main components:
 
-1) Interact with the Censys API in order to search certificates with the names related to a domain given as input, and thereafter pull back domain names related to thoughtmachine
+1) Interact with the Censys API in order to search certificates with the names related to a domain given as input, and thereafter pull back domain names related 
 
 2) An optional step, and applied if less than 20 domains were pulled back in step 1; we form a google search query composed of our domain, but negating any domains pulled back in step 1. This is so that we can search for any related domains fetched by google but not pulled back from the Censys search in step 1
 
@@ -26,12 +26,12 @@ Usage:
 
 	3) If it's your first time using the script, (on either windows or linux) run:
 	
-		 docker build -t intel . && docker run --env-file api_secrets.list --rm intel thoughtmachine.net -ng
+		 docker build -t intel . && docker run --env-file api_secrets.list --rm intel test.net -ng
 	
 	
 	- Every usage thereafter you can simply run: 
 	
-		docker run --env-file api_secrets.list --rm intel thoughtmachine.net -ng
+		docker run --env-file api_secrets.list --rm intel test.net -ng
 
 
 	The basic syntax is as follows:
@@ -81,29 +81,3 @@ takeaways:
 	- Making your own tool seems like the best way to learn
 
 ------------------------------------------------------------------------------------
-
-- From running the tool against thoughtmachine.net, gathered that thoughtmachine.net itself is deployed on an AWS cloudfront. 
-- It's possible that thoughtmachine's running a gsuite deployment internally, due to the fact that the server behind intranet.thoughtmachine.net shows as ghs server. Or perhaps domain was setup under google domains, according to research...
-- Nothing interesting apart from services over 80 and 443 which is really standard, and there doesn't seem to be too much information disclosed. Maybe more in depth subdomain finding techniques would have revealed more.
-
-Output from 'thoughtmachine.net' as the target domain....
-
-{"domain": "www.prophecy.thoughtmachine.net", "ips": []}
-{"domain": "k8s-proto.thoughtmachine.net", "ips": []}
-{"domain": "www.prophecy-dev.thoughtmachine.net", "ips": []}
-{"domain": "www.phabricator.thoughtmachine.net", "ips": []}
-{"domain": "prophecy.thoughtmachine.net", "ips": []}
-
-{"domain": "intranet.thoughtmachine.net", "ips": [{"ip": "172.217.169.83", "data": [{"tags": ["http"], "80.http.get.title": "Error 404 (Not Found)!!1", "80.http.get.headers.server": "ghs", "80.http.get.metadata.product": "Hosted Site", "ports": [80], "protocols": ["80/http"]}]}]}
-
-{"domain": "prophecy-dev.thoughtmachine.net", "ips": []}
-{"domain": "phabricator.thoughtmachine.net", "ips": []}
-
-{"domain": "thoughtmachine.net", "ips": [{"ip": "13.224.239.49", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.64", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.81", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.22", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}]}
-
-{"domain": "doge.thoughtmachine.net", "ips": [{"ip": "212.36.160.18", "data": [{"tags": ["http", "https"], "ports": [443], "protocols": ["443/https"], "443.https.get.title": "Forbidden"}]}]}
-
-{"domain": "www.thoughtmachine.net", "ips": [{"ip": "13.224.239.64", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.81", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.49", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.22", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}]}
-
-{"domain": "www.thoughtmachine.net", "ips": [{"ip": "13.224.239.64", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.81", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.49", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}, {"ip": "13.224.239.22", "data": [{"tags": ["http"], "80.http.get.title": "ERROR: The request could not be satisfied", "80.http.get.headers.server": "CloudFront", "80.http.get.metadata.product": "CloudFront", "ports": [80], "protocols": ["80/http"]}]}]}
-
