@@ -1,6 +1,6 @@
 This script will pull back domains related to a given domain. It will then attempt to resolve an IP for any of the domains, and then associate any IPs with a given domain. With each of the IPs, we then query to censys.io IPv4 api to discover any properties, protocls, and services running on the target IP.
 
-The script has has 3 main components:
+The script has has 3 main components: 
 
 1) Interact with the Censys API in order to search certificates with the names related to a domain given as input, and thereafter pull back domain names related 
 
