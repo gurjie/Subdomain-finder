@@ -87,6 +87,9 @@ class ComplexEncoder(json.JSONEncoder):
         else:
             return json.JSONEncoder.default(self, obj)
 
+#def dig_using_wordlist(domain):
+    
+
 
 def grab_domains(domain):
     # We're using the certificates python API instead of making REST API calls to the certificates endpoint
@@ -202,14 +205,18 @@ def search_google(domain, knownsites, domain_objects):
     We then get a JSON dump for each domain and print it to the prompt, which is our final output.
 """
 def main(domain, toggle_google):
-    subdomains = grab_domains(domain)
-    print("##time to resolve the domains and perform lookups...##")
-    all_discovered_subdomains = resolve_and_objectify(domain, subdomains, toggle_google)
-    for every_domain in all_discovered_subdomains:
-        print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
-
-    print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
-
+    #dig_using_wordlist(domain)
+    #subdomains = grab_domains(domain)
+    #print("##time to resolve the domains and perform lookups...##")
+    #all_discovered_subdomains = resolve_and_objectify(domain, subdomains, toggle_google)
+    #for every_domain in all_discovered_subdomains:
+    #    print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
+    #
+    #print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
+    f = open("/data/default_domains.txt","r")
+    for line in f:
+        print(line, end="")
+    f.close()
 """
     Here, we set a flag as to whether we want to search google to discover subdomains. We also validate the command line input.
     TODO: Find a way to validate that the user's actually provided a hostname, as difficult as that seems...

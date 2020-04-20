@@ -22,25 +22,26 @@ Prerequisites:
 Usage:
 	1) Open a command prompt with elevated privelages and cd into the directory containing the dockerfile and script
 
-	2) Open api_secrets and replace the default CENSYS_API_KEY and CENSYS_SECRET with your own tokens. These are then passed as env variables to the Docker image	
+	2) Open api_secrets and replace the default CENSYS_API_KEY and CENSYS_SECRET with your own tokens. These are then passed as env variables to the Docker image	 
 
 	3) If it's your first time using the script, (on either windows or linux) run:
 	
-		 docker build -t intel . && docker run --env-file api_secrets.list --rm intel test.net -ng
+		docker build -t intel . && docker run --env-file api_secrets.list -v $(pwd)/container-data:/data:Z --rm intel test.net -ng
+		
+		(NOTE:: "$(pwd)/container-data" in the above command should be replaced with the path to the container-data folder shipped in this project)
 	
+	- Every usage thereafter you can run: 
 	
-	- Every usage thereafter you can simply run: 
-	
-		docker run --env-file api_secrets.list --rm intel test.net -ng
-
+		docker run --env-file api_secrets.list -v $(pwd)/container-data:/data:Z --rm intel test.net -ng
 
 	The basic syntax is as follows:
 		
-		docker run --env-file [api_secrets.list] --rm intel [domain.to.analyse] [-ng]
+		docker run --env-file [api_secrets.list] -v [$(pwd)/container-data]:/data:Z --rm intel [domain.to.analyse] [-ng]
 
 	[api_secrets.list]	= Secrets file containing Censys API Authentication tokens, only need to change the values in the file. Passed as env vars to docker.
 	[domain.to.analyse]	= The domain the script is going to pull back subdomains and attributes of any resolved IPs for
 	[-ng]			= The No Google flag, to omit google search as a mechanism to discover subdomains
+	[$(pwd)/container-data] = A path that must always point to the container-data folder, which is where domains dig are stored
 
 Output: 
 	- JSON showing all domains ('domain' within json) found, any of their associated IPs given as a list ('ips' within json), and then Censys IPv4 output for each IP related to the domain. 
