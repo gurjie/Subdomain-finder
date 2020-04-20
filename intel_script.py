@@ -7,37 +7,42 @@ import censys.ipv4
 import censys.base
 import socket
 import json
+import subprocess
 from json import JSONEncoder
 from IPy import IP
 
 CENSYS_API_KEY=""
 CENSYS_SECRET=""
+toggle_censys_ipv4 = True
 
 # Used to hold objects referring to IP addresses, as well as their attributes from the IPv4 lookup. When initialising the object, we fetch Censys IPv4 lookup data,
 class IPObject(object):
 
     def __init__(self,ip):
         self.ip = ip # give this IP address object an IP, as it deserves!
-        c = censys.ipv4.CensysIPv4(api_id=CENSYS_API_KEY, api_secret=CENSYS_SECRET)
-        # fields we want to pull back from censys ipv4 search - totally configurable
-        IPV4_FIELDS = [ 'tags',
-                        'ports',
-                        'protocols',
-                        '80.http.get.headers.server',
-                        '80.http.get.metadata.product',
-                         '80.http.get.title',
-                         '443.https.get.title',
-                         '25.smtp.starttls.banner',
-                         '80.http.get.server',
-                         '21.ftp.banner.banner',
-                         '22.ssh.v2.banner.raw'
-                         ]
-        # set the censys data pulled back for this IP to this object
-        try:
-            self.data = list(c.search(ip, IPV4_FIELDS, max_records=15))
-        except Exception as e:
-            print(e)
-            exit(1)
+        if toggle_censys_ipv4:
+            c = censys.ipv4.CensysIPv4(api_id=CENSYS_API_KEY, api_secret=CENSYS_SECRET)
+            # fields we want to pull back from censys ipv4 search - totally configurable
+            IPV4_FIELDS = [ 'tags',
+                            'ports',
+                            'protocols',
+                            '80.http.get.headers.server',
+                            '80.http.get.metadata.product',
+                             '80.http.get.title',
+                             '443.https.get.title',
+                             '25.smtp.starttls.banner',
+                             '80.http.get.server',
+                             '21.ftp.banner.banner',
+                             '22.ssh.v2.banner.raw'
+                             ]
+            # set the censys data pulled back for this IP to this object
+            try:
+                self.data = list(c.search(ip, IPV4_FIELDS, max_records=15))
+            except Exception as e:
+                print(e)
+                exit(1)
+        else:
+            self.data = ""
     
     def reprJSON(self):
         return dict(ip=self.ip, data=self.data)
@@ -87,10 +92,18 @@ class ComplexEncoder(json.JSONEncoder):
         else:
             return json.JSONEncoder.default(self, obj)
 
-#def dig_using_wordlist(domain):
-    
-
-
+def dig_using_wordlist(domain):
+    try:
+        wordlist = open("/data/default_domains.txt","r")
+    except Exception as e:
+        print(e)
+        exit(1)
+    domains_to_dig = set()
+    for word in wordlist:
+        full_domain = word.rstrip()+"."+domain
+        print(full_domain)
+        domains_to_dig.update(full_domain)
+        
 def grab_domains(domain):
     # We're using the certificates python API instead of making REST API calls to the certificates endpoint
     certificates = censys.certificates.CensysCertificates(CENSYS_API_KEY, CENSYS_SECRET)
@@ -144,6 +157,7 @@ def resolve_and_objectify(domain, subdomains, toggle_google):
     # Haven't been detected yet. Plus, changing the search limit and intervals has a way bigger effect. This is just preemptive
     if ((len(unique_domains)<20) and (toggle_google == True)):
         search_google(domain, unique_domains, objectified_domains)
+    dig_using_wordlist(domain)
     return objectified_domains
 
 def lookup_domain_and_store(domain_to_lookup, domain_object_array, unique_domains=[]):
@@ -198,25 +212,30 @@ def search_google(domain, knownsites, domain_objects):
     for discovered_domain in discovered:
         lookup_domain_and_store(discovered_domain, domain_objects)
 
+def print_help(arg):
+    if arg != "genuine":
+        print("ERROR:",arg,"is invalid input to this script...exiting")
+    print("--- SCRIPT ARGUMENT FORMAT (in any order): domain [optional]-ng [optional]-nc [optional]-nip ---")
+    print("Where domain must contain a period ('.') character, and the other flages are optional.")            
+    print("ng: don't search google to reolve domains;")
+    print("nc: don't search censys certificates for subdomains\nnip: don't make an ipv4 lookup and find info about the domains")
+
 """
     The main entry point. Here, we execute the subdomains() routin to fetch any domains from the censys IPv4 API.
     We then process to resolving IP addresses for each domain, and then instantiatigng objects for each Domain, as well as objects to store each IP address. 
     The Domain objects hold IP address objects, which in turn hold an IP address and list of attributes discovered from the Censys IPv4 lookup.
     We then get a JSON dump for each domain and print it to the prompt, which is our final output.
 """
-def main(domain, toggle_google):
-    #dig_using_wordlist(domain)
-    #subdomains = grab_domains(domain)
-    #print("##time to resolve the domains and perform lookups...##")
-    #all_discovered_subdomains = resolve_and_objectify(domain, subdomains, toggle_google)
-    #for every_domain in all_discovered_subdomains:
-    #    print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
-    #
-    #print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
-    f = open("/data/default_domains.txt","r")
-    for line in f:
-        print(line, end="")
-    f.close()
+def main(domain, toggle_google, toggle_censys_certs):
+    if (toggle_censys_certs == True):
+        subdomains = grab_domains(domain)
+    else:
+        subdomains = set()
+    all_discovered_subdomains = resolve_and_objectify(domain, subdomains, toggle_google)
+    for every_domain in all_discovered_subdomains:
+        print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
+    
+    print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
 """
     Here, we set a flag as to whether we want to search google to discover subdomains. We also validate the command line input.
     TODO: Find a way to validate that the user's actually provided a hostname, as difficult as that seems...
@@ -227,22 +246,37 @@ def main(domain, toggle_google):
 """
 if __name__ == "__main__":
     scrape_google = True  #flag specifying whether we should scrape google for subdomains
+    search_censys_certs = True
+    domain = ""
     # validate arg length and contents
-    if (len(sys.argv) == 2):
-        domain = sys.argv[1].lower()
-    elif(len(sys.argv) == 3):
-        if (sys.argv[2] == "-ng"):
+    count = 0
+    for arg in sys.argv:
+        if count == 0:
+            count += 1
+        elif  count == 1:
+            count+=1
+            if "." in arg:
+                domain = arg
+            elif arg == "-help" or arg == "help" or arg == "-h":
+                print_help("genuine")
+                exit(1)
+            else:
+                print("You must enter a valid domain...exiting")
+                exit(1)
+        elif arg == "-ng":
             scrape_google = False
-            domain = sys.argv[1].lower()
+        elif arg == "-nc":
+            search_censys_certs = False
+        elif arg == "-nip":
+            toggle_censys_ipv4 = False
         else:
-            print("Invalid second argument:",sys.argv[2])
-            print("Second argument must either be blank or -ng")
-            sys.exit(1)
-    ### end validate args ###
-    else:
-        print("You provided",len(sys.argv)-1,"arguments; this program takes a minimum of domain as arg. Specificy a domain and/or -ng")
-        print("The ng flag is optional and will turn google subdomain scraping off if specified")
-        sys.exit(1)
+            print_help(arg)
+            exit(1)
+
+    if (scrape_google == False and search_censys_certs == False):
+        print("You've got to either scrape google or search censys certs. Invalid arguments")
+        exit(1)
+            
     try:
         CENSYS_API_KEY = os.environ.get('CENSYS_API_KEY')
     except KeyError:
@@ -254,6 +288,5 @@ if __name__ == "__main__":
     except KeyError:
         print("The API secret was not set as a docker environment variable")
         sys.exit(1)
-
-    print("#############pulling back results now....#############")
-    main(domain, scrape_google)
+    
+    main(domain, scrape_google, search_censys_certs)
