@@ -8,6 +8,7 @@ import censys.base
 import socket
 import json
 import subprocess
+import pydig
 from json import JSONEncoder
 from IPy import IP
 
@@ -57,14 +58,7 @@ class Domain(object):
         if "92.242.132.24" in ips: ips.remove("92.242.132.24")
         self.ips = [] # array used to temporarily hold IPs associated with this domain, before instantiating an IPObject 
         for ip in ips:
-            # cast to an IP using IPy, then check whether its an internal or external IP, also using IPy
-            if ((IP(ip).iptype()=='PRIVATE') or ip==""):
-                pass
-            else:
-                # if the IP isn't private or blank, let's add it to the list of IPs associated with this domain
-                IP_object = IPObject(ip)
-                self.ips.append(IP_object)
-
+            self.add_ip(ip)
     # let's return any associated IP addresses with this domain. Used for debugging
     def get_associated_addresses(self):
         ips = []
@@ -79,6 +73,16 @@ class Domain(object):
             data.append(ip_object.data)
         return data
 
+    def add_ip(self, ip):
+        # cast to an IP using IPy, then check whether its an internal or external IP, also using IPy
+        if ((IP(ip).iptype()=='PRIVATE') or ip==""):
+            pass
+        else:
+            # if the IP isn't private or blank, let's add it to the list of IPs associated with this domain
+            IP_object = IPObject(ip)
+            self.ips.append(IP_object)
+
+
     # code reused much appreciatedly, from https://stackoverflow.com/questions/5160077/encoding-nested-python-object-in-json; massively helped understanding encoding
     # (reprJSON functions are from this link)
     def reprJSON(self):
@@ -92,18 +96,33 @@ class ComplexEncoder(json.JSONEncoder):
         else:
             return json.JSONEncoder.default(self, obj)
 
-def dig_using_wordlist(domain):
+def dig_using_wordlist(domain, already_found_domains, objectified_domains):
     try:
         wordlist = open("/data/default_domains.txt","r")
     except Exception as e:
         print(e)
         exit(1)
-    domains_to_dig = set()
     for word in wordlist:
         full_domain = word.rstrip()+"."+domain
-        print(full_domain)
-        domains_to_dig.update(full_domain)
-        
+        returned = pydig.query(full_domain,'A')
+        if(len(returned)==0):
+            pass
+        elif(len(returned)==1):
+            if(returned[0]=="92.242.132.24" or returned[0]=="NXDOMAIN" or returned==""):
+                pass
+        else:
+            if(full_domain not in already_found_domains):
+                already_found_domains.append(full_domain)
+            to_remove_from_ip_list = []
+            for suspected_ip in returned:
+                # if what should be an ip contains any alpha letters
+                if(suspected_ip.lower().islower()==True):
+                    to_remove_from_ip_list.append(suspected_ip)    
+            for item in to_remove_from_ip_list:
+                returned.remove(item)
+            domain_object = Domain(full_domain,returned)
+            objectified_domains.append(domain_object)            
+
 def grab_domains(domain):
     # We're using the certificates python API instead of making REST API calls to the certificates endpoint
     certificates = censys.certificates.CensysCertificates(CENSYS_API_KEY, CENSYS_SECRET)
@@ -136,7 +155,7 @@ def grab_domains(domain):
         print(e)
         return subdomains
 
-def resolve_and_objectify(domain, subdomains, toggle_google):
+def resolve_and_objectify(domain, subdomains, toggle_google, toggle_dig):
     objectified_domains = [] # Array holding all of our domains, as objects, discovered
     unique_domains = [] # Store all unique and relevant domains pulled back, to negate from our google query
     # for every subdomain, let's resolve an IP we can further use for investigation
@@ -153,11 +172,13 @@ def resolve_and_objectify(domain, subdomains, toggle_google):
                 pass #placeholder 
         else:
            pass #placeholder
+    
+    if (toggle_dig):
+        dig_using_wordlist(domain,unique_domains, objectified_domains)
     # The idea of this length check is only to make sure we don't trigger some sort of bot detection with google...
     # Haven't been detected yet. Plus, changing the search limit and intervals has a way bigger effect. This is just preemptive
     if ((len(unique_domains)<20) and (toggle_google == True)):
         search_google(domain, unique_domains, objectified_domains)
-    dig_using_wordlist(domain)
     return objectified_domains
 
 def lookup_domain_and_store(domain_to_lookup, domain_object_array, unique_domains=[]):
@@ -226,12 +247,12 @@ def print_help(arg):
     The Domain objects hold IP address objects, which in turn hold an IP address and list of attributes discovered from the Censys IPv4 lookup.
     We then get a JSON dump for each domain and print it to the prompt, which is our final output.
 """
-def main(domain, toggle_google, toggle_censys_certs):
+def main(domain, toggle_google, toggle_censys_certs, toggle_dig):
     if (toggle_censys_certs == True):
         subdomains = grab_domains(domain)
     else:
         subdomains = set()
-    all_discovered_subdomains = resolve_and_objectify(domain, subdomains, toggle_google)
+    all_discovered_subdomains = resolve_and_objectify(domain, subdomains, toggle_google, toggle_dig)
     for every_domain in all_discovered_subdomains:
         print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
     
@@ -247,6 +268,7 @@ def main(domain, toggle_google, toggle_censys_certs):
 if __name__ == "__main__":
     scrape_google = True  #flag specifying whether we should scrape google for subdomains
     search_censys_certs = True
+    toggle_dig = True
     domain = ""
     # validate arg length and contents
     count = 0
@@ -269,11 +291,13 @@ if __name__ == "__main__":
             search_censys_certs = False
         elif arg == "-nip":
             toggle_censys_ipv4 = False
+        elif arg == "-ndg":
+            toggle_dig = False
         else:
             print_help(arg)
             exit(1)
 
-    if (scrape_google == False and search_censys_certs == False):
+    if (scrape_google == False and search_censys_certs == False and toggle_dig == False):
         print("You've got to either scrape google or search censys certs. Invalid arguments")
         exit(1)
             
@@ -289,4 +313,4 @@ if __name__ == "__main__":
         print("The API secret was not set as a docker environment variable")
         sys.exit(1)
     
-    main(domain, scrape_google, search_censys_certs)
+    main(domain, scrape_google, search_censys_certs, toggle_dig)
