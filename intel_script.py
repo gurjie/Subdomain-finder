@@ -59,6 +59,7 @@ class Domain(object):
         self.ips = [] # array used to temporarily hold IPs associated with this domain, before instantiating an IPObject 
         for ip in ips:
             self.add_ip(ip)
+    
     # let's return any associated IP addresses with this domain. Used for debugging
     def get_associated_addresses(self):
         ips = []
@@ -113,15 +114,17 @@ def dig_using_wordlist(domain, already_found_domains, objectified_domains):
         else:
             if(full_domain not in already_found_domains):
                 already_found_domains.append(full_domain)
-            to_remove_from_ip_list = []
-            for suspected_ip in returned:
-                # if what should be an ip contains any alpha letters
-                if(suspected_ip.lower().islower()==True):
-                    to_remove_from_ip_list.append(suspected_ip)    
-            for item in to_remove_from_ip_list:
-                returned.remove(item)
-            domain_object = Domain(full_domain,returned)
-            objectified_domains.append(domain_object)            
+                to_remove_from_ip_list = []
+                for suspected_ip in returned:
+                    # if what should be an ip contains any alpha letters
+                    if(suspected_ip.lower().islower()==True):
+                        to_remove_from_ip_list.append(suspected_ip)    
+                for item in to_remove_from_ip_list:
+                    returned.remove(item)
+                domain_object = Domain(full_domain,returned)
+                objectified_domains.append(domain_object)            
+            else:
+                print("i already know about",full_domain)
 
 def grab_domains(domain):
     # We're using the certificates python API instead of making REST API calls to the certificates endpoint
@@ -174,7 +177,7 @@ def resolve_and_objectify(domain, subdomains, toggle_google, toggle_dig):
            pass #placeholder
     
     if (toggle_dig):
-        dig_using_wordlist(domain,unique_domains, objectified_domains)
+        dig_using_wordlist(domain, unique_domains, objectified_domains)
     # The idea of this length check is only to make sure we don't trigger some sort of bot detection with google...
     # Haven't been detected yet. Plus, changing the search limit and intervals has a way bigger effect. This is just preemptive
     if ((len(unique_domains)<20) and (toggle_google == True)):
@@ -182,21 +185,26 @@ def resolve_and_objectify(domain, subdomains, toggle_google, toggle_dig):
     return objectified_domains
 
 def lookup_domain_and_store(domain_to_lookup, domain_object_array, unique_domains=[]):
+    already_spotted_sadly = False
     try:
-        # Using gethostbyname_ex will retrieve zero or more associated IPs as opposed to gethostbyname which will
-        # retrieve 0 or 1. Because getaddrinfo wasn't used, only ipv4 addresses will be resovled
-        resolved = socket.gethostbyname_ex(domain_to_lookup)
-        # Awesome work, we resolved the domain and now we'll store itself and associated IPs in an objects
-        domain_object = Domain(domain_to_lookup,resolved[2])
-        unique_domains.append(domain_to_lookup)
+        if(domain_to_lookup not in unique_domains):
+            # Using gethostbyname_ex will retrieve zero or more associated IPs as opposed to gethostbyname which will
+            # retrieve 0 or 1. Because getaddrinfo wasn't used, only ipv4 addresses will be resovled
+            resolved = socket.gethostbyname_ex(domain_to_lookup)
+            # Awesome work, we resolved the domain and now we'll store itself and associated IPs in an objects
+            domain_object = Domain(domain_to_lookup,resolved[2])
+            unique_domains.append(domain_to_lookup)
+        else:
+            already_spotted_sadly = True
     except Exception as e:
         # We likely couldn't fetch back a valid response to our query, so attribute the domain with no associated IPs
         domain_object = Domain(domain_to_lookup) # don't give the domain_object any associated IPs
         unique_domains.append(domain_to_lookup)
         pass
     finally:
-        domain_object_array.append(domain_object)
-        #print(domain_object.domain,domain_object.get_associated_addresses(),domain_object.get_data_for_all_IPs())
+        if not already_spotted_sadly:
+            domain_object_array.append(domain_object)
+            #print(domain_object.domain,domain_object.get_associated_addresses(),domain_object.get_data_for_all_IPs())
 
 """
     The purpose of this function is to scrape google. We search google using its searching syntax, excluding domains
@@ -256,7 +264,7 @@ def main(domain, toggle_google, toggle_censys_certs, toggle_dig):
     for every_domain in all_discovered_subdomains:
         print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
     
-    print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
+    #print(json.dumps(every_domain.reprJSON(), cls=ComplexEncoder))
 """
     Here, we set a flag as to whether we want to search google to discover subdomains. We also validate the command line input.
     TODO: Find a way to validate that the user's actually provided a hostname, as difficult as that seems...
